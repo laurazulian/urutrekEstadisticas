@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instagram Analytics Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .dashboard {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            animation: fadeIn 1s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .header h1 {
+            font-size: 3em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            background: linear-gradient(45deg, #ff6b6b, #feca57, #48dbfb);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .date-range {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 1.2em;
+        }
+
+        .controls {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            padding: 12px 24px;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+            backdrop-filter: blur(10px);
+        }
+
+        .filter-btn:hover,
+        .filter-btn.active {
+            background: rgba(255, 255, 255, 0.3);
+            border-color: #feca57;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+        }
+
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 25px;
+            margin-bottom: 40px;
+        }
+
+        .kpi-card {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 20px;
+            padding: 30px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .kpi-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+            transition: left 0.6s;
+        }
+
+        .kpi-card:hover::before {
+            left: 100%;
+        }
+
+        .kpi-card:hover {
+            transform: translateY(-10px) scale(1.02);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        }
+
+        .kpi-value {
+            font-size: 3.5em;
+            font-weight: 800;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #ff6b6b, #feca57);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .kpi-label {
+            color: white;
+            font-size: 1.3em;
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+
+        .kpi-trend {
+            font-size: 1.1em;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .trend-up { color: #2ed573; }
+        .trend-down { color: #ff4757; }
+
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .chart-container {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 20px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
+            height: 280px; /* 🔹 altura uniforme y más compacta */
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chart-container:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+        }
+
+        .chart-title {
+            color: white;
+            font-size: 1.2em;
+            font-weight: 700;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .chart-container canvas {
+            flex: 1; /* 🔹 ocupa el espacio disponible */
+            width: 100% !important;
+            height: auto !important;
+        }
+
+        .content-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 30px;
+            margin-top: 30px;
+        }
+
+        .content-preview {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 20px;
+            padding: 30px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .content-preview h3 {
+            color: white;
+            margin-bottom: 20px;
+            font-size: 1.4em;
+        }
+
+        .content-items {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 15px;
+        }
+
+        .content-item {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .content-item:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: scale(1.05);
+        }
+
+        .content-image {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(45deg, #ff6b6b, #feca57, #48dbfb, #ff9ff3);
+            border-radius: 8px;
+            margin: 0 auto 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5em;
+            color: white;
+        }
+
+        .insights-panel {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 20px;
+            padding: 30px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .insight-item {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 15px;
+            border-left: 4px solid #feca57;
+        }
+
+        .insight-item h4 {
+            color: white;
+            margin-bottom: 10px;
+        }
+
+        .insight-item p {
+            color: rgba(255, 255, 255, 0.8);
+            line-height: 1.6;
+        }
+
+        @media (max-width: 768px) {
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .content-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .kpi-value {
+                font-size: 2.5em;
+            }
+            
+            .header h1 {
+                font-size: 2em;
+            }
+        }
+
+        .loading {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid rgba(255,255,255,0.3);
+            border-top: 4px solid #feca57;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="loading" id="loading">
+        <div class="spinner"></div>
+    </div>
+
+    <div class="dashboard">
+        <div class="header">
+            <h1>📊 Instagram Analytics</h1>
+            <div class="date-range">10 de agosto - 8 de septiembre 2025</div>
+        </div>
+
+        <div class="controls">
+            <button class="filter-btn active" onclick="setTimeRange('7d')">7 días</button>
+            <button class="filter-btn" onclick="setTimeRange('30d')">30 días</button>
+            <button class="filter-btn" onclick="setTimeRange('90d')">3 meses</button>
+            <button class="filter-btn" onclick="updateData()">🔄 Actualizar</button>
+        </div>
+
+        <div class="kpi-grid">
+            <div class="kpi-card" onclick="animateKPI(this)">
+                <div class="kpi-value" id="visualizaciones">88.6K</div>
+                <div class="kpi-label">Visualizaciones</div>
+                <div class="kpi-trend trend-up">
+                    <span>📈</span> +15.2% vs período anterior
+                </div>
+            </div>
+
+            <div class="kpi-card" onclick="animateKPI(this)">
+                <div class="kpi-value" id="interacciones">1.0K</div>
+                <div class="kpi-label">Interacciones</div>
+                <div class="kpi-trend trend-up">
+                    <span>💬</span> +8.5% engagement rate
+                </div>
+            </div>
+
+            <div class="kpi-card" onclick="animateKPI(this)">
+                <div class="kpi-value" id="seguidores">280</div>
+                <div class="kpi-label">Nuevos Seguidores</div>
+                <div class="kpi-trend trend-up">
+                    <span>👥</span> +12.3% crecimiento
+                </div>
+            </div>
+
+            <div class="kpi-card" onclick="animateKPI(this)">
+                <div class="kpi-value" id="mensajes">81</div>
+                <div class="kpi-label">Contactos de Mensajes</div>
+                <div class="kpi-trend trend-up">
+                    <span>📩</span> +25.6% conversiones
+                </div>
+            </div>
+        </div>
+
+        <div class="charts-grid">
+            <div class="chart-container">
+                <h3 class="chart-title">📈 Tendencia de Visualizaciones</h3>
+                <canvas id="visualizacionesChart"></canvas>
+            </div>
+
+            <div class="chart-container">
+                <h3 class="chart-title">👥 Crecimiento de Seguidores</h3>
+                <canvas id="seguidoresChart"></canvas>
+            </div>
+
+            <div class="chart-container">
+                <h3 class="chart-title">💝 Engagement por Tipo de Contenido</h3>
+                <canvas id="engagementChart"></canvas>
+            </div>
+
+            <div class="chart-container">
+                <h3 class="chart-title">⏰ Actividad por Horas</h3>
+                <canvas id="horasChart"></canvas>
+            </div>
+        </div>
+
+        <div class="content-grid">
+            <div class="content-preview">
+                <h3>🎨 Contenido que Compartiste</h3>
+                <div class="content-items">
+                    <div class="content-item" onclick="showContentDetail('urutest')">
+                        <div class="content-image">🏔️</div>
+                        <div style="color: white; font-size: 0.9em;">URUTEST</div>
+                    </div>
+                    <div class="content-item" onclick="showContentDetail('destinos')">
+                        <div class="content-image">🗺️</div>
+                        <div style="color: white; font-size: 0.9em;">3 Destinos</div>
+                    </div>
+                    <div class="content-item" onclick="showContentDetail('valle')">
+                        <div class="content-image">⛰️</div>
+                        <div style="color: white; font-size: 0.9em;">Valle</div>
+                    </div>
+                    <div class="content-item" onclick="showContentDetail('volcan')">
+                        <div class="content-image">🌋</div>
+                        <div style="color: white; font-size: 0.9em;">Volcán Lanín</div>
+                    </div>
+                    <div class="content-item" onclick="showContentDetail('7x4000')">
+                        <div class="content-image">🏔️</div>
+                        <div style="color: white; font-size: 0.9em;">7x4000</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="insights-panel">
+                <h3 style="color: white; margin-bottom: 20px;">💡 Insights Clave</h3>
+                
+                <div class="insight-item">
+                    <h4>🚀 Mejor Rendimiento</h4>
+                    <p>El contenido de montaña genera 3x más engagement que otros tipos de posts.</p>
+                </div>
+
+                <div class="insight-item">
+                    <h4>⏰ Mejor Horario</h4>
+                    <p>Tus seguidores están más activos entre 19:00 - 21:00 hs.</p>
+                </div>
+
+                <div class="insight-item">
+                    <h4>📊 Crecimiento</h4>
+                    <p>Crecimiento del 15% mensual en visualizaciones. ¡Sigue así!</p>
+                </div>
+
+                <div class="insight-item">
+                    <h4>🎯 Recomendación</h4>
+                    <p>Aumenta la frecuencia de posts sobre aventuras en montaña.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Datos simulados
+        const data = {
+            visualizaciones: {
+                labels: ['1 Sep', '2 Sep', '3 Sep', '4 Sep', '5 Sep', '6 Sep', '7 Sep', '8 Sep'],
+                values: [8500, 12300, 15600, 18200, 22400, 19800, 25100, 28200]
+            },
+            seguidores: {
+                labels: ['1 Sep', '2 Sep', '3 Sep', '4 Sep', '5 Sep', '6 Sep', '7 Sep', '8 Sep'],
+                values: [25, 32, 18, 45, 38, 52, 29, 41]
+            },
+            engagement: {
+                labels: ['Fotos', 'Videos', 'Reels', 'Stories', 'Carousels'],
+                values: [35, 45, 65, 25, 40]
+            },
+            horas: {
+                labels: ['6-9', '9-12', '12-15', '15-18', '18-21', '21-24'],
+                values: [5, 12, 18, 25, 35, 15]
+            }
+        };
+
+        let charts = {};
+
+        // Configuración de gráficos
+        const chartConfig = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    labels: {
+                        color: 'white',
+                        font: { size: 12 }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    ticks: { color: 'white' },
+                    grid: { color: 'rgba(255,255,255,0.1)' }
+                },
+                y: {
+                    ticks: { color: 'white' },
+                    grid: { color: 'rgba(255,255,255,0.1)' }
+                }
+            }
+        };
+
+        function initCharts() {
+            // Gráfico de visualizaciones
+            const ctx1 = document.getElementById('visualizacionesChart').getContext('2d');
+            charts.visualizaciones = new Chart(ctx1, {
+                type: 'line',
+                data: {
+                    labels: data.visualizaciones.labels,
+                    datasets: [{
+                        label: 'Visualizaciones',
+                        data: data.visualizaciones.values,
+                        borderColor: '#feca57',
+                        backgroundColor: 'rgba(254, 202, 87, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    ...chartConfig,
+                    height: 300
+                }
+            });
+
+            // Gráfico de seguidores
+            const ctx2 = document.getElementById('seguidoresChart').getContext('2d');
+            charts.seguidores = new Chart(ctx2, {
+                type: 'bar',
+                data: {
+                    labels: data.seguidores.labels,
+                    datasets: [{
+                        label: 'Nuevos Seguidores',
+                        data: data.seguidores.values,
+                        backgroundColor: 'rgba(72, 219, 251, 0.8)',
+                        borderColor: '#48dbfb',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    ...chartConfig,
+                    height: 300
+                }
+            });
+
+            // Gráfico de engagement
+            const ctx3 = document.getElementById('engagementChart').getContext('2d');
+            charts.engagement = new Chart(ctx3, {
+                type: 'doughnut',
+                data: {
+                    labels: data.engagement.labels,
+                    datasets: [{
+                        data: data.engagement.values,
+                        backgroundColor: [
+                            '#ff6b6b',
+                            '#feca57',
+                            '#48dbfb',
+                            '#ff9ff3',
+                            '#54a0ff'
+                        ],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    ...chartConfig,
+                    height: 300
+                }
+            });
+
+            // Gráfico de horas
+            const ctx4 = document.getElementById('horasChart').getContext('2d');
+            charts.horas = new Chart(ctx4, {
+                type: 'radar',
+                data: {
+                    labels: data.horas.labels,
+                    datasets: [{
+                        label: 'Actividad %',
+                        data: data.horas.values,
+                        borderColor: '#ff9ff3',
+                        backgroundColor: 'rgba(255, 159, 243, 0.2)',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    ...chartConfig,
+                    height: 200,
+                    scales: {
+                        r: {
+                            ticks: { color: 'white' },
+                            grid: { color: 'rgba(255,255,255,0.1)' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function animateKPI(card) {
+            card.style.transform = 'scale(1.1) rotate(2deg)';
+            setTimeout(() => {
+                card.style.transform = 'scale(1) rotate(0deg)';
+            }, 300);
+        }
+
+        function setTimeRange(range) {
+            showLoading();
+            
+            // Actualizar botones
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+
+            // Simular carga de datos
+            setTimeout(() => {
+                updateChartsWithNewData(range);
+                hideLoading();
+            }, 1000);
+        }
+
+        function updateChartsWithNewData(range) {
+            // Simular nuevos datos basados en el rango
+            const multiplier = range === '7d' ? 1 : range === '30d' ? 1.5 : 2.2;
+            
+            // Actualizar KPIs
+            const visualizaciones = Math.round(88600 * multiplier);
+            const interacciones = Math.round(1000 * multiplier);
+            const seguidores = Math.round(280 * multiplier);
+            const mensajes = Math.round(81 * multiplier);
+
+            animateCounter('visualizaciones', formatNumber(visualizaciones));
+            animateCounter('interacciones', formatNumber(interacciones));
+            animateCounter('seguidores', seguidores);
+            animateCounter('mensajes', mensajes);
+
+            // Actualizar gráficos
+            Object.values(charts).forEach(chart => {
+                chart.data.datasets[0].data = chart.data.datasets[0].data.map(value => 
+                    Math.round(value * multiplier)
+                );
+                chart.update('active');
+            });
+        }
+
+        function formatNumber(num) {
+            if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+            if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+            return num.toString();
+        }
+
+        function animateCounter(id, targetValue) {
+            const element = document.getElementById(id);
+            const current = element.textContent;
+            element.textContent = targetValue;
+            
+            // Efecto de parpadeo
+            element.style.color = '#feca57';
+            setTimeout(() => {
+                element.style.color = '';
+            }, 500);
+        }
+
+        function showContentDetail(contentType) {
+            alert(`Abriendo detalles de: ${contentType}\n\n• Visualizaciones: ${Math.floor(Math.random() * 10000) + 5000}\n• Likes: ${Math.floor(Math.random() * 500) + 100}\n• Comentarios: ${Math.floor(Math.random() * 50) + 10}\n• Compartidos: ${Math.floor(Math.random() * 25) + 5}`);
+        }
+
+        function updateData() {
+            showLoading();
+            
+            setTimeout(() => {
+                // Simular datos actualizados
+                const variation = () => 0.8 + Math.random() * 0.4;
+                
+                animateCounter('visualizaciones', formatNumber(Math.round(88600 * variation())));
+                animateCounter('interacciones', formatNumber(Math.round(1000 * variation())));
+                animateCounter('seguidores', Math.round(280 * variation()));
+                animateCounter('mensajes', Math.round(81 * variation()));
+                
+                hideLoading();
+                
+                // Mostrar notificación
+                showNotification('📊 Datos actualizados correctamente');
+            }, 1500);
+        }
+
+        function showLoading() {
+            document.getElementById('loading').style.display = 'flex';
+        }
+
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        function showNotification(message) {
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: rgba(46, 213, 115, 0.9);
+                color: white;
+                padding: 15px 25px;
+                border-radius: 10px;
+                font-weight: 600;
+                z-index: 1001;
+                animation: slideIn 0.3s ease-out;
+            `;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+
+        // Inicializar al cargar
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(initCharts, 500);
+            
+            // Efecto de aparición escalonada para las KPIs
+            const kpiCards = document.querySelectorAll('.kpi-card');
+            kpiCards.forEach((card, index) => {
+                card.style.opacity = '0';
+                card.style.transform = 'translateY(30px)';
+                setTimeout(() => {
+                    card.style.transition = 'all 0.6s ease-out';
+                    card.style.opacity = '1';
+                    card.style.transform = 'translateY(0)';
+                }, index * 200);
+            });
+        });
+
+        // Agregar CSS para animación de slide
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideIn {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+</body>
+</html>
